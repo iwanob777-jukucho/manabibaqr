@@ -25,8 +25,12 @@
     const html5QrCode = new Html5Qrcode("reader");
     const config = { fps: 15, qrbox: { width: 250, height: 250 } };
 
-    html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
-      html5QrCode.pause();
+/* 修正後のコード */
+html5QrCode.start(
+  { facingMode: "environment" }, // まずは背面カメラを試す
+  config, 
+  (decodedText) => {
+    // ...（ここから下の送信処理は今のままでOK）      html5QrCode.pause();
       const resultDiv = document.getElementById('result');
       resultDiv.innerText = "送信中...";
 
