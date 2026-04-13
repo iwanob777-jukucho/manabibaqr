@@ -1,76 +1,55 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<!DOCTYPE html>
 <html>
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2575.6">
-  <style type="text/css">
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
-    p.p3 {margin: 0.0px 0.0px 0.0px 0.0px; font: 13.3px Arial; color: #0000e9; -webkit-text-stroke: #0000e9}
-    span.s1 {font: 12.0px Helvetica; color: #000000; -webkit-text-stroke: 0px #000000}
-    span.s2 {font: 13.3px Arial; text-decoration: underline ; font-kerning: none}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>マナビバ入退室</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 0; padding: 20px; background: #f0f2f5; }
+    #reader { width: 100%; max-width: 500px; margin: 0 auto; border-radius: 10px; overflow: hidden; background: white; }
+    #result { margin-top: 20px; font-size: 1.2em; font-weight: bold; padding: 15px; border-radius: 8px; }
+    .loading { color: #666; }
+    .success { background: #d4edda; color: #155724; }
   </style>
 </head>
 <body>
-<p class="p1">&lt;!DOCTYPE html&gt;</p>
-<p class="p1">&lt;html&gt;</p>
-<p class="p1">&lt;head&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta charset="UTF-8"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;title&gt;マナビバ入退室&lt;/title&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://unpkg.com/html5-qrcode"&gt;&lt;/script&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;style&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>body { font-family: sans-serif; text-align: center; margin: 0; padding: 20px; background: #f0f2f5; }</p>
-<p class="p1"><span class="Apple-converted-space">    </span>#reader { width: 100%; max-width: 500px; margin: 0 auto; border-radius: 10px; overflow: hidden; }</p>
-<p class="p1"><span class="Apple-converted-space">    </span>#result { margin-top: 20px; font-size: 1.2em; font-weight: bold; padding: 15px; border-radius: 8px; }</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.loading { color: #666; }</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.success { background: #d4edda; color: #155724; }</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;/style&gt;</p>
-<p class="p1">&lt;/head&gt;</p>
-<p class="p1">&lt;body&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;h2&gt;マナビバ入退室管理&lt;/h2&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;div id="reader"&gt;&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;div id="result" class="loading"&gt;カメラを起動中...&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>// ★ここにあなたのGASのウェブアプリURLを貼り付けてください</p>
-<p class="p3"><span class="s1"><span class="Apple-converted-space">    </span>const GAS_URL = "<a href="https://script.google.com/macros/s/AKfycbxs2i-UDDR_ddUW902Z-oHHS_X133LjccSXEDzLNN143Vxi3aunK2g60VbPwNb0SzWu/exec"><span class="s2">https://script.google.com/macros/s/AKfycbxs2i-UDDR_ddUW902Z-oHHS_X133LjccSXEDzLNN143Vxi3aunK2g60VbPwNb0SzWu/exec</span></a>";</span></p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>const html5QrCode = new Html5Qrcode("reader");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const config = { fps: 15, qrbox: { width: 250, height: 250 } };</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>html5QrCode.start({ facingMode: "environment" }, config, (decodedText) =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>// 読み取り成功時</p>
-<p class="p1"><span class="Apple-converted-space">      </span>html5QrCode.pause(); // 二重送信防止</p>
-<p class="p1"><span class="Apple-converted-space">      </span>const resultDiv = document.getElementById('result');</p>
-<p class="p1"><span class="Apple-converted-space">      </span>resultDiv.innerText = "通信中...";</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>// GASへデータを送信</p>
-<p class="p1"><span class="Apple-converted-space">      </span>fetch(GAS_URL, {</p>
-<p class="p1"><span class="Apple-converted-space">        </span>method: "POST",</p>
-<p class="p1"><span class="Apple-converted-space">        </span>mode: "no-cors", // これが重要</p>
-<p class="p1"><span class="Apple-converted-space">        </span>headers: { "Content-Type": "application/x-www-form-urlencoded" },</p>
-<p class="p1"><span class="Apple-converted-space">        </span>body: "id=" + encodeURIComponent(decodedText)</p>
-<p class="p1"><span class="Apple-converted-space">      </span>})</p>
-<p class="p1"><span class="Apple-converted-space">      </span>.then(() =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">        </span>resultDiv.innerText = "記録完了: " + decodedText;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>resultDiv.className = "success";</p>
-<p class="p1"><span class="Apple-converted-space">        </span>setTimeout(() =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">          </span>resultDiv.innerText = "QRコードをかざしてください";</p>
-<p class="p1"><span class="Apple-converted-space">          </span>resultDiv.className = "loading";</p>
-<p class="p1"><span class="Apple-converted-space">          </span>html5QrCode.resume();</p>
-<p class="p1"><span class="Apple-converted-space">        </span>}, 3000);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>})</p>
-<p class="p1"><span class="Apple-converted-space">      </span>.catch(err =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">        </span>alert("送信エラー: " + err);</p>
-<p class="p1"><span class="Apple-converted-space">        </span>html5QrCode.resume();</p>
-<p class="p1"><span class="Apple-converted-space">      </span>});</p>
-<p class="p1"><span class="Apple-converted-space">    </span>});</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;/script&gt;</p>
-<p class="p1">&lt;/body&gt;</p>
-<p class="p1">&lt;/html&gt;</p>
+  <h2>マナビバ入退室管理</h2>
+  <div id="reader"></div>
+  <div id="result" class="loading">カメラを起動中...</div>
+
+  <script>
+    // ★ここをご自身のGASのURLに書き換えてください（""は残す）
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxs2i-UDDR_ddUW902Z-oHHS_X133LjccSXEDzLNN143Vxi3aunK2g60VbPwNb0SzWu/exec";
+
+    const html5QrCode = new Html5Qrcode("reader");
+    const config = { fps: 15, qrbox: { width: 250, height: 250 } };
+
+    html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
+      html5QrCode.pause();
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerText = "送信中...";
+
+      fetch(GAS_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "id=" + encodeURIComponent(decodedText)
+      })
+      .then(() => {
+        resultDiv.innerText = "記録完了: " + decodedText;
+        resultDiv.className = "success";
+        setTimeout(() => {
+          resultDiv.innerText = "QRコードをかざしてください";
+          resultDiv.className = "loading";
+          html5QrCode.resume();
+        }, 3000);
+      })
+      .catch(err => {
+        alert("送信エラー: " + err);
+        html5QrCode.resume();
+      });
+    });
+  </script>
 </body>
 </html>
