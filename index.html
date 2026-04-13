@@ -11,70 +11,121 @@
     #result { margin-top: 20px; font-size: 1.2em; font-weight: bold; padding: 15px; border-radius: 8px; }
     .loading { color: #666; }
     .success { background: #d4edda; color: #155724; border: 2px solid #28a745; }
+    /* カメラ切り替え用スタイルの追加 */
+    #camera-selection { margin-bottom: 15px; padding: 10px; border-radius: 5px; border: 1px solid #ccc; width: 80%; max-width: 300px; }
+    .controls { margin-top: 10px; margin-bottom: 10px; }
   </style>
 </head>
 <body>
   <h2>マナビバ入退室管理</h2>
+  
+  <div class="controls">
+    <select id="camera-selection">
+      <option value="">カメラを探しています...</option>
+    </select>
+  </div>
+
   <div id="reader"></div>
-  <div id="result" class="loading">カメラを起動中...</div>
+  <div id="result" class="loading">カメラを準備中...</div>
 
   <script>
-    // GASのURL（設定済み）
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxs2i-UDDR_ddUW902Z-oHHS_X133LjccSXEDzLNN143Vxi3aunK2g60VbPwNb0SzWu/exec";
-
     const html5QrCode = new Html5Qrcode("reader");
+    const cameraSelect = document.getElementById('camera-selection');
     const config = { fps: 15, qrbox: { width: 250, height: 250 } };
 
-/* 修正後のコード */
-html5QrCode.start(
-  { facingMode: "environment" }, // まずは背面カメラを試す
-  config, 
-  (decodedText) => {
-    // ...（ここから下の送信処理は今のままでOK）      html5QrCode.pause();
-      const resultDiv = document.getElementById('result');
-      resultDiv.innerText = "送信中...";
+    // 1. 利用可能なカメラを取得してリストに表示
+    Html5Qrcode.getCameras().then(cameras => {
+      if (cameras && cameras.length > 0) {
+        cameraSelect.innerHTML = ""; // 初期メッセージをクリア
+        cameras.forEach((camera, index) => {
+          const option = document.createElement("option");
+          option.value = camera.id;
+          option.text = camera.label || `カメラ ${index + 1}`;
+          cameraSelect.appendChild(option);
+        });
 
-      // --- ここから修正：送信データの作成 ---
-      const formData = new URLSearchParams();
-      formData.append('id', decodedText);
-      // ------------------------------------
-
-      fetch(GAS_URL, {
-        method: "POST",
-        mode: "cors", 
-        body: formData
-      })
-      .then(response => response.text())
-      .then(data => {
-        const resultParts = data.split(",");
-        const name = resultParts[0];
-        const status = resultParts[1];
-
-        if (status === "IN") {
-          resultDiv.innerHTML = `<span style="font-size: 1.2em; color: #1a73e8;">${name} さん</span><br>🔔 入室しました！`;
-          resultDiv.style.backgroundColor = "#e3f2fd";
-        } else if (status === "OUT") {
-          resultDiv.innerHTML = `<span style="font-size: 1.2em; color: #e67c73;">${name} さん</span><br>🏠 退室しました！`;
-          resultDiv.style.backgroundColor = "#fff3e0";
+        // デフォルトで背面(environment)に近い方、もしくは最後のカメラを選択
+        const backCamera = cameras.find(c => c.label.toLowerCase().includes('back') || c.label.toLowerCase().includes('背面'));
+        if (backCamera) {
+          cameraSelect.value = backCamera.id;
         } else {
-          resultDiv.innerText = "記録完了: " + name;
+          cameraSelect.value = cameras[cameras.length - 1].id;
         }
 
-        resultDiv.className = "success";
-        
-        setTimeout(() => {
-          resultDiv.innerText = "QRコードをかざしてください";
-          resultDiv.className = "loading";
-          resultDiv.style.backgroundColor = "";
-          html5QrCode.resume();
-        }, 4000);
-      })
-      .catch(err => {
-        resultDiv.innerText = "エラーが発生しました";
-        console.error(err);
-        html5QrCode.resume();
+        startScanning(cameraSelect.value);
+      } else {
+        document.getElementById('result').innerText = "カメラが見つかりません";
+      }
+    }).catch(err => {
+      console.error("カメラ取得失敗", err);
+      document.getElementById('result').innerText = "カメラアクセスを許可してください";
+    });
+
+    // 2. カメラの切り替えイベント
+    cameraSelect.addEventListener('change', () => {
+      if (html5QrCode.isScanning) {
+        html5QrCode.stop().then(() => {
+          startScanning(cameraSelect.value);
+        });
+      } else {
+        startScanning(cameraSelect.value);
+      }
+    });
+
+    // 3. スキャン開始関数
+    function startScanning(cameraId) {
+      html5QrCode.start(
+        cameraId,
+        config,
+        (decodedText) => {
+          html5QrCode.pause();
+          const resultDiv = document.getElementById('result');
+          resultDiv.innerText = "送信中...";
+
+          const formData = new URLSearchParams();
+          formData.append('id', decodedText);
+
+          fetch(GAS_URL, {
+            method: "POST",
+            mode: "cors",
+            body: formData
+          })
+          .then(response => response.text())
+          .then(data => {
+            const resultParts = data.split(",");
+            const name = resultParts[0];
+            const status = resultParts[1];
+
+            if (status === "IN") {
+              resultDiv.innerHTML = `<span style="font-size: 1.2em; color: #1a73e8;">${name} さん</span><br>🔔 入室しました！`;
+              resultDiv.style.backgroundColor = "#e3f2fd";
+            } else if (status === "OUT") {
+              resultDiv.innerHTML = `<span style="font-size: 1.2em; color: #e67c73;">${name} さん</span><br>🏠 退室しました！`;
+              resultDiv.style.backgroundColor = "#fff3e0";
+            } else {
+              resultDiv.innerText = "記録完了: " + name;
+            }
+
+            resultDiv.className = "success";
+            
+            setTimeout(() => {
+              resultDiv.innerText = "QRコードをかざしてください";
+              resultDiv.className = "loading";
+              resultDiv.style.backgroundColor = "";
+              html5QrCode.resume();
+            }, 4000);
+          })
+          .catch(err => {
+            resultDiv.innerText = "送信エラーが発生しました";
+            console.error(err);
+            html5QrCode.resume();
+          });
+        }
+      ).catch(err => {
+        document.getElementById('result').innerText = "起動エラー: " + err;
       });
-    }); // ← 閉じカッコを追加
+    }
   </script>
 </body>
 </html>
