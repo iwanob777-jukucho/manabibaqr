@@ -12,9 +12,10 @@
       padding: 0; 
       width: 100%; 
       height: 100%; 
-      overflow: hidden; /* スクロール禁止 */
+      overflow: hidden; 
       background: #000;
-      position: fixed; /* iOSなどの引っ張りスクロール防止 */
+      position: fixed;
+      overscroll-behavior-y: contain; /* 引っ張りリロード防止 */
     }
 
     /* カメラを画面いっぱいに広げる */
@@ -24,37 +25,37 @@
       border: none !important;
     }
     
-    /* html5-qrcode内部のビデオ要素を全画面にフィットさせる */
     #reader video {
       object-fit: cover;
     }
 
-    /* カメラ切り替え用セレクトボックス（左上に浮かせる） */
+    /* カメラ切り替え（左上に配置） */
     .controls {
       position: absolute;
       top: 10px;
       left: 10px;
       z-index: 100;
-      opacity: 0.7;
+      opacity: 0.5;
     }
-    #camera-selection { padding: 8px; border-radius: 5px; }
+    #camera-selection { padding: 5px; font-size: 12px; }
 
-    /* 結果表示の帯（最前面に中央表示） */
+    /* 結果表示の帯（中央に最前面表示） */
     #result {
       position: absolute;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%); /* 画面中央に配置 */
-      width: 80%;
-      max-width: 400px;
-      padding: 30px 20px;
+      transform: translate(-50%, -50%);
+      width: 85%;
+      max-width: 450px;
+      padding: 40px 20px;
       text-align: center;
-      font-size: 1.5em;
+      font-size: 1.8em;
       font-weight: bold;
-      border-radius: 15px;
+      border-radius: 20px;
       z-index: 1000;
-      display: none; /* 最初は隠しておく */
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      display: none;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+      line-height: 1.4;
     }
 
     .loading { background: rgba(255, 255, 255, 0.9); color: #333; display: block !important; }
@@ -63,16 +64,17 @@
     .out-style { background: rgba(230, 124, 115, 0.95); } /* 退室：赤 */
   </style>
 </head>
-<body>
+
+<body onclick="document.documentElement.requestFullscreen();">
 
   <div class="controls">
     <select id="camera-selection">
-      <option value="">カメラを探しています...</option>
+      <option value="">カメラ準備中...</option>
     </select>
   </div>
 
   <div id="reader"></div>
-  <div id="result" class="loading">カメラ準備中...</div>
+  <div id="result" class="loading">カメラ準備中...<br><small>画面を一度タップしてください</small></div>
 
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxs2i-UDDR_ddUW902Z-oHHS_X133LjccSXEDzLNN143Vxi3aunK2g60VbPwNb0SzWu/exec";
@@ -80,11 +82,13 @@
     const cameraSelect = document.getElementById('camera-selection');
     const resultDiv = document.getElementById('result');
     
-    // カメラ設定（全画面でも読みやすくfpsを調整）
+    // QR読み取り範囲の調整
     const config = { fps: 20, qrbox: (width, height) => {
-      return { width: width * 0.7, height: width * 0.7 }; // 画面の7割を読み取り範囲に
+      const size = Math.min(width, height) * 0.7;
+      return { width: size, height: size };
     }};
 
+    // カメラのリストアップ
     Html5Qrcode.getCameras().then(cameras => {
       if (cameras && cameras.length > 0) {
         cameraSelect.innerHTML = "";
@@ -94,9 +98,13 @@
           option.text = camera.label || `カメラ ${index + 1}`;
           cameraSelect.appendChild(option);
         });
-        cameraSelect.value = cameras[cameras.length - 1].id;
+        // 背面カメラっぽいのを優先、なければ最後を選択
+        const back = cameras.find(c => c.label.toLowerCase().includes('back'));
+        cameraSelect.value = back ? back.id : cameras[cameras.length - 1].id;
         startScanning(cameraSelect.value);
       }
+    }).catch(err => {
+      resultDiv.innerText = "カメラエラー: 権限を確認してください";
     });
 
     cameraSelect.addEventListener('change', () => {
@@ -128,6 +136,7 @@
             resultDiv.className = "success out-style";
           }
           
+          // 表示時間は2秒
           setTimeout(() => {
             resultDiv.innerText = "QRコードをかざしてください";
             resultDiv.className = "loading";
@@ -135,7 +144,7 @@
           }, 2000);
         })
         .catch(err => {
-          resultDiv.innerText = "エラー: 再試行してください";
+          resultDiv.innerText = "通信エラー: もう一度かざしてください";
           setTimeout(() => html5QrCode.resume(), 2000);
         });
       });
