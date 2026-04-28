@@ -6,66 +6,33 @@
   <title>マナビバ入退室</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    /* 全画面設定とスクロール禁止 */
     html, body { 
-      margin: 0; 
-      padding: 0; 
-      width: 100%; 
-      height: 100%; 
-      overflow: hidden; 
-      background: #000;
-      position: fixed;
-      overscroll-behavior-y: contain; /* 引っ張りリロード防止 */
+      margin: 0; padding: 0; width: 100%; height: 100%; 
+      overflow: hidden; background: #000; position: fixed;
+      overscroll-behavior-y: contain;
     }
-
-    /* カメラを画面いっぱいに広げる */
-    #reader { 
-      width: 100vw !important; 
-      height: 100vh !important; 
-      border: none !important;
-    }
-    
-    #reader video {
-      object-fit: cover;
-    }
-
-    /* カメラ切り替え（左上に配置） */
-    .controls {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 100;
-      opacity: 0.5;
-    }
+    #reader { width: 100vw !important; height: 100vh !important; border: none !important; }
+    #reader video { object-fit: cover; }
+    .controls { position: absolute; top: 10px; left: 10px; z-index: 100; opacity: 0.5; }
     #camera-selection { padding: 5px; font-size: 12px; }
-
-    /* 結果表示の帯（中央に最前面表示） */
     #result {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 85%;
-      max-width: 450px;
-      padding: 40px 20px;
-      text-align: center;
-      font-size: 1.8em;
-      font-weight: bold;
-      border-radius: 20px;
-      z-index: 1000;
-      display: none;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-      line-height: 1.4;
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 85%; max-width: 450px; padding: 40px 20px; text-align: center;
+      font-size: 1.8em; font-weight: bold; border-radius: 20px; z-index: 1000;
+      display: none; box-shadow: 0 10px 40px rgba(0,0,0,0.6); line-height: 1.4;
     }
-
     .loading { background: rgba(255, 255, 255, 0.9); color: #333; display: block !important; }
     .success { display: block !important; color: #fff; }
-    .in-style { background: rgba(26, 115, 232, 0.95); } /* 入室：青 */
-    .out-style { background: rgba(230, 124, 115, 0.95); } /* 退室：赤 */
+    .in-style { background: rgba(26, 115, 232, 0.95); }
+    .out-style { background: rgba(230, 124, 115, 0.95); }
   </style>
 </head>
 
 <body onclick="document.documentElement.requestFullscreen();">
+
+  <audio id="beep-sound" preload="auto">
+    <source src="https://otologic.jp/free/se/wav/beeps/beep01.mp3" type="audio/mp3">
+  </audio>
 
   <div class="controls">
     <select id="camera-selection">
@@ -81,14 +48,13 @@
     const html5QrCode = new Html5Qrcode("reader");
     const cameraSelect = document.getElementById('camera-selection');
     const resultDiv = document.getElementById('result');
+    const beep = document.getElementById('beep-sound'); // 音の要素
     
-    // QR読み取り範囲の調整
     const config = { fps: 20, qrbox: (width, height) => {
       const size = Math.min(width, height) * 0.7;
       return { width: size, height: size };
     }};
 
-    // カメラのリストアップ
     Html5Qrcode.getCameras().then(cameras => {
       if (cameras && cameras.length > 0) {
         cameraSelect.innerHTML = "";
@@ -98,17 +64,10 @@
           option.text = camera.label || `カメラ ${index + 1}`;
           cameraSelect.appendChild(option);
         });
-        // 背面カメラっぽいのを優先、なければ最後を選択
         const back = cameras.find(c => c.label.toLowerCase().includes('back'));
         cameraSelect.value = back ? back.id : cameras[cameras.length - 1].id;
         startScanning(cameraSelect.value);
       }
-    }).catch(err => {
-      resultDiv.innerText = "カメラエラー: 権限を確認してください";
-    });
-
-    cameraSelect.addEventListener('change', () => {
-      html5QrCode.stop().then(() => startScanning(cameraSelect.value));
     });
 
     function startScanning(cameraId) {
@@ -126,6 +85,9 @@
         fetch(GAS_URL, { method: "POST", mode: "cors", body: formData })
         .then(response => response.text())
         .then(data => {
+          // ★ここで音を鳴らす
+          beep.play().catch(e => console.log("音の再生に失敗:", e));
+
           const [name, status] = data.split(",");
           
           if (status === "IN") {
@@ -136,7 +98,6 @@
             resultDiv.className = "success out-style";
           }
           
-          // 表示時間は2秒
           setTimeout(() => {
             resultDiv.innerText = "QRコードをかざしてください";
             resultDiv.className = "loading";
