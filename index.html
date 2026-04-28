@@ -9,12 +9,25 @@
     html, body { 
       margin: 0; padding: 0; width: 100%; height: 100%; 
       overflow: hidden; background: #000; position: fixed;
-      overscroll-behavior-y: contain;
     }
     #reader { width: 100vw !important; height: 100vh !important; border: none !important; }
     #reader video { object-fit: cover; }
-    .controls { position: absolute; top: 10px; left: 10px; z-index: 100; opacity: 0.5; }
-    #camera-selection { padding: 5px; font-size: 12px; }
+
+    /* カメラ切り替えボタンを最前面に、かつ目立つように配置 */
+    .controls { 
+      position: absolute; 
+      top: 15px; 
+      right: 15px; /* 右上に配置 */
+      z-index: 9999; /* 最前面へ */
+    }
+    #camera-selection { 
+      padding: 10px; 
+      font-size: 14px; 
+      background: rgba(255, 255, 255, 0.8); 
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
     #result {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       width: 85%; max-width: 450px; padding: 40px 20px; text-align: center;
@@ -36,7 +49,7 @@
 
   <div class="controls">
     <select id="camera-selection">
-      <option value="">カメラ準備中...</option>
+      <option value="">カメラ読込中...</option>
     </select>
   </div>
 
@@ -45,16 +58,17 @@
 
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxs2i-UDDR_ddUW902Z-oHHS_X133LjccSXEDzLNN143Vxi3aunK2g60VbPwNb0SzWu/exec";
-    const html5QrCode = new Html5Qrcode("reader");
+    let html5QrCode = new Html5Qrcode("reader");
     const cameraSelect = document.getElementById('camera-selection');
     const resultDiv = document.getElementById('result');
-    const beep = document.getElementById('beep-sound'); // 音の要素
+    const beep = document.getElementById('beep-sound');
     
     const config = { fps: 20, qrbox: (width, height) => {
       const size = Math.min(width, height) * 0.7;
       return { width: size, height: size };
     }};
 
+    // カメラ一覧の取得と初期起動
     Html5Qrcode.getCameras().then(cameras => {
       if (cameras && cameras.length > 0) {
         cameraSelect.innerHTML = "";
@@ -64,9 +78,26 @@
           option.text = camera.label || `カメラ ${index + 1}`;
           cameraSelect.appendChild(option);
         });
-        const back = cameras.find(c => c.label.toLowerCase().includes('back'));
-        cameraSelect.value = back ? back.id : cameras[cameras.length - 1].id;
+        
+        // 背面カメラを優先的に探す
+        const backCamera = cameras.find(c => c.label.toLowerCase().includes('back'));
+        const targetId = backCamera ? backCamera.id : cameras[0].id;
+        cameraSelect.value = targetId;
+        startScanning(targetId);
+      }
+    }).catch(err => {
+      resultDiv.innerText = "カメラの権限を許可してください";
+    });
+
+    // カメラ切り替え時の処理（確実に停止してから再開）
+    cameraSelect.addEventListener('change', async () => {
+      try {
+        await html5QrCode.stop();
         startScanning(cameraSelect.value);
+      } catch (err) {
+        console.error("切り替えエラー:", err);
+        // 万が一止まらなかった場合はリロード
+        location.reload();
       }
     });
 
@@ -85,9 +116,7 @@
         fetch(GAS_URL, { method: "POST", mode: "cors", body: formData })
         .then(response => response.text())
         .then(data => {
-          // ★ここで音を鳴らす
-          beep.play().catch(e => console.log("音の再生に失敗:", e));
-
+          beep.play().catch(e => console.log("再生失敗:", e));
           const [name, status] = data.split(",");
           
           if (status === "IN") {
@@ -105,7 +134,7 @@
           }, 2000);
         })
         .catch(err => {
-          resultDiv.innerText = "通信エラー: もう一度かざしてください";
+          resultDiv.innerText = "通信エラー";
           setTimeout(() => html5QrCode.resume(), 2000);
         });
       });
