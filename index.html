@@ -13,12 +13,11 @@
     #reader { width: 100vw !important; height: 100vh !important; border: none !important; }
     #reader video { object-fit: cover; }
 
-    /* カメラ切り替えボタンを最前面に、かつ目立つように配置 */
     .controls { 
       position: absolute; 
       top: 15px; 
-      right: 15px; /* 右上に配置 */
-      z-index: 9999; /* 最前面へ */
+      right: 15px;
+      z-index: 9999;
     }
     #camera-selection { 
       padding: 10px; 
@@ -68,7 +67,6 @@
       return { width: size, height: size };
     }};
 
-    // カメラ一覧の取得と初期起動
     Html5Qrcode.getCameras().then(cameras => {
       if (cameras && cameras.length > 0) {
         cameraSelect.innerHTML = "";
@@ -79,7 +77,6 @@
           cameraSelect.appendChild(option);
         });
         
-        // 背面カメラを優先的に探す
         const backCamera = cameras.find(c => c.label.toLowerCase().includes('back'));
         const targetId = backCamera ? backCamera.id : cameras[0].id;
         cameraSelect.value = targetId;
@@ -89,14 +86,12 @@
       resultDiv.innerText = "カメラの権限を許可してください";
     });
 
-    // カメラ切り替え時の処理（確実に停止してから再開）
     cameraSelect.addEventListener('change', async () => {
       try {
         await html5QrCode.stop();
         startScanning(cameraSelect.value);
       } catch (err) {
         console.error("切り替えエラー:", err);
-        // 万が一止まらなかった場合はリロード
         location.reload();
       }
     });
@@ -107,6 +102,9 @@
       
       html5QrCode.start(cameraId, config, (decodedText) => {
         html5QrCode.pause();
+        
+        // ★ここで「送信中...」の表示と同時に音を鳴らします
+        beep.play().catch(e => console.log("再生失敗:", e));
         resultDiv.innerText = "送信中...";
         resultDiv.className = "loading";
 
@@ -116,7 +114,6 @@
         fetch(GAS_URL, { method: "POST", mode: "cors", body: formData })
         .then(response => response.text())
         .then(data => {
-          beep.play().catch(e => console.log("再生失敗:", e));
           const [name, status] = data.split(",");
           
           if (status === "IN") {
