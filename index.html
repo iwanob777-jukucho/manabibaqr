@@ -40,11 +40,7 @@
   </style>
 </head>
 
-<body onclick="document.documentElement.requestFullscreen();">
-
-  <audio id="beep-sound" preload="auto">
-    <source src="https://otologic.jp/free/se/wav/beeps/beep01.mp3" type="audio/mp3">
-  </audio>
+<body onclick="initAudio(); document.documentElement.requestFullscreen();">
 
   <div class="controls">
     <select id="camera-selection">
@@ -60,8 +56,36 @@
     let html5QrCode = new Html5Qrcode("reader");
     const cameraSelect = document.getElementById('camera-selection');
     const resultDiv = document.getElementById('result');
-    const beep = document.getElementById('beep-sound');
     
+    // Web Audio API（ブラウザ内部で「ピッ」と音を作る機能）
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // 「ピッ」と電子音を鳴らす関数
+    function playBeep() {
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(2000, audioCtx.currentTime); // 周波数（2000Hz = 高いピッ音）
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime); // 音量
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15); // 0.15秒だけ鳴らす
+      } catch (e) {
+        console.log("音声再生エラー:", e);
+      }
+    }
+
     const config = { fps: 20, qrbox: (width, height) => {
       const size = Math.min(width, height) * 0.7;
       return { width: size, height: size };
@@ -103,8 +127,9 @@
       html5QrCode.start(cameraId, config, (decodedText) => {
         html5QrCode.pause();
         
-        // ★ここで「送信中...」の表示と同時に音を鳴らします
-        beep.play().catch(e => console.log("再生失敗:", e));
+        // ★QRコードを検知した瞬間に電子音を鳴らします
+        playBeep();
+        
         resultDiv.innerText = "送信中...";
         resultDiv.className = "loading";
 
