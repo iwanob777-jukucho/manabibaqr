@@ -2,56 +2,131 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>マナビバ 入退室打刻</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      text-align: center;
-      background-color: #f8f9fa;
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
       margin: 0;
-      padding: 20px;
+      padding: 0;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", sans-serif;
+      background-color: #f8f9fa;
       user-select: none;
     }
-    h1 { color: #333; margin-bottom: 10px; font-size: 24px; }
+
+    /* 全体コンテナ */
+    #app-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      width: 100vw;
+      height: 100vh;
+      padding: 2vh 2vw;
+      transition: background-color 0.15s ease;
+    }
+
+    /* タイトル */
+    h1 {
+      color: #333;
+      margin: 0;
+      font-size: 4vh;
+      font-weight: bold;
+    }
+
+    /* QR読み取りカメラ枠 */
+    #reader-wrapper {
+      width: 100%;
+      max-width: 600px;
+      flex-grow: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     #reader {
       width: 100%;
-      max-width: 480px;
-      margin: 0 auto;
+      max-height: 55vh;
       background: #000;
-      border-radius: 12px;
+      border-radius: 16px;
       overflow: hidden;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
     }
-    #status {
-      margin-top: 20px;
-      font-size: 28px;
-      font-weight: bold;
-      min-height: 50px;
+    #reader video {
+      object-fit: cover;
+    }
+
+    /* 下部ステータス表示エリア */
+    #status-container {
+      width: 100%;
+      max-width: 800px;
+      text-align: center;
+      padding: 1.5vh;
+    }
+    #status-text {
+      font-size: 5vh;
+      font-weight: 900;
       color: #007bff;
-      padding: 10px;
-      border-radius: 8px;
-      background: #fff;
-      max-width: 480px;
-      margin: 10px auto;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      line-height: 1.2;
+      word-break: break-all;
     }
-    .tap-hint { font-size: 14px; color: #6c757d; margin-top: 15px; }
+    .tap-hint {
+      font-size: 2vh;
+      color: #6c757d;
+      margin-top: 1vh;
+    }
+
+    /* 認証成功時の全画面緑色スタイル */
+    #app-container.success {
+      background-color: #28a745 !important;
+    }
+    #app-container.success h1,
+    #app-container.success .tap-hint,
+    #app-container.success #reader-wrapper {
+      display: none; /* 認証時は画面全体をスッキリさせて文字を超巨大化 */
+    }
+    #app-container.success #status-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+    }
+    #app-container.success #status-text {
+      color: #ffffff !important;
+      font-size: 10vh !important; /* 最大サイズの文字 */
+      text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
   </style>
 </head>
 <body>
 
-  <h1>学習塾マナビバ 入退室管理</h1>
-  <div id="reader"></div>
-  <div id="status">カード（QR）をかざしてください</div>
-  <div class="tap-hint">※音が鳴らない場合は一度画面をタップしてください</div>
+  <div id="app-container">
+    <h1>学習塾マナビバ 入退室管理</h1>
+    
+    <div id="reader-wrapper">
+      <div id="reader"></div>
+    </div>
+
+    <div id="status-container">
+      <div id="status-text">QRをかざしてください</div>
+      <div class="tap-hint" id="hint-text">※画面をタップすると全画面化＆音が有効になります</div>
+    </div>
+  </div>
 
   <script>
-    // ★ステップ1でコピーしたGASのURLを「' '」の間に貼り付けてください
+    // 設定済みのGAS WebアプリURL
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxs2i-UDDR_ddUW902Z-oHHS_X133LjccSXEDzLNN143Vxi3aunK2g60VbPwNb0SzWu/exec";
 
+    // ==========================================
     // 音声再生 (Web Audio API)
+    // ==========================================
     let audioCtx = null;
     function initAudio() {
       if (!audioCtx) {
@@ -68,8 +143,8 @@
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = "sine";
-        osc.frequency.setValueAtTime(2000, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(2000, audioCtx.currentTime); // 2000Hzの高音
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
@@ -79,50 +154,70 @@
       }
     }
 
-    // 爆速・待ち時間ゼロ打刻処理
+    // ==========================================
+    // 全画面表示トリガー
+    // ==========================================
+    function requestFullScreen() {
+      const doc = document.documentElement;
+      if (doc.requestFullscreen) {
+        doc.requestFullscreen().catch(() => {});
+      } else if (doc.webkitRequestFullscreen) {
+        doc.webkitRequestFullscreen();
+      }
+    }
+
+    // ==========================================
+    // 爆速・全画面緑色 認証処理
+    // ==========================================
     let isProcessing = false;
 
     function onScanSuccess(decodedText, decodedResult) {
-      if (isProcessing) return; // 連続読み取り防止
+      if (isProcessing) return;
       isProcessing = true;
 
-      // ① かざした瞬間に0.01秒で「ピッ！」と音を鳴らす
+      // ① 0.01秒で「ピッ！」音を再生
       playBeep();
 
-      // ② かざした瞬間に画面を「受付完了」にする
-      const statusDiv = document.getElementById("status");
-      statusDiv.innerText = `【受付完了】ID: ${decodedText}`;
-      statusDiv.style.color = "#28a745";
-      statusDiv.style.backgroundColor = "#e8f5e9";
+      // ② 全画面を緑色にし、超巨大文字で表示
+      const container = document.getElementById("app-container");
+      const statusText = document.getElementById("status-text");
+      
+      container.classList.add("success");
+      statusText.innerText = "認証しました！";
 
-      // ③ 裏側（バックグラウンド）でスプレッドシートへ送信
-      if (GAS_URL && GAS_URL !== "ここにGASのURLを貼り付け") {
-        fetch(`${GAS_URL}?id=${encodeURIComponent(decodedText)}`, {
-          method: "POST",
-          mode: "no-cors"
-        }).catch(err => console.error("送信エラー:", err));
-      }
+      // ③ 裏側（バックグラウンド）でGASへ送信
+      fetch(`${GAS_URL}?id=${encodeURIComponent(decodedText)}`, {
+        method: "POST",
+        mode: "no-cors"
+      }).catch(err => console.error("送信エラー:", err));
 
-      // 1.2秒後に次のカード受付を開始
+      // ④ 1.5秒後に自動で元のスキャン画面に戻す
       setTimeout(() => {
-        statusDiv.innerText = "カード（QR）をかざしてください";
-        statusDiv.style.color = "#007bff";
-        statusDiv.style.backgroundColor = "#fff";
+        container.classList.remove("success");
+        statusText.innerText = "QRをかざしてください";
         isProcessing = false;
-      }, 1200);
+      }, 1500);
     }
 
-    // カメラ起動
+    // カメラ起動設定
     const html5QrcodeScanner = new Html5QrcodeScanner(
       "reader", 
-      { fps: 10, qrbox: { width: 250, height: 250 } },
+      { 
+        fps: 15, 
+        qrbox: function(viewfinderWidth, viewfinderHeight) {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          return { width: Math.floor(minEdge * 0.8), height: Math.floor(minEdge * 0.8) };
+        }
+      },
       false
     );
     html5QrcodeScanner.render(onScanSuccess);
 
-    // 画面タップで音声初期化
+    // 画面タップ時に全画面化＆音声の初期化を実行
     document.body.addEventListener("click", () => {
       initAudio();
+      requestFullScreen();
+      document.getElementById("hint-text").style.display = "none";
     });
   </script>
 </body>
