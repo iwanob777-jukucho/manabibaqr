@@ -42,7 +42,7 @@
       letter-spacing: 2px;
     }
 
-    /* カメラ枠 */
+    /* カメラ枠（大型化） */
     #reader-wrapper {
       width: 100%;
       max-width: 900px;
@@ -92,7 +92,7 @@
     #app-container.success h1,
     #app-container.success .tap-hint,
     #app-container.success #reader-wrapper {
-      display: none; /* 認証時は完全に隠す */
+      display: none;
     }
     #app-container.success #status-container {
       display: flex;
@@ -104,7 +104,7 @@
     }
     #app-container.success #status-text {
       color: #ffffff !important;
-      font-size: 35vh !important; /* 文字を「OK」に変更したため超々巨大化（35vh） */
+      font-size: 35vh !important;
       font-weight: 900 !important;
       letter-spacing: 4px;
       text-shadow: 0 8px 24px rgba(0,0,0,0.3);
@@ -122,16 +122,35 @@
 
     <div id="status-container">
       <div id="status-text">QRをかざしてください</div>
-      <div class="tap-hint" id="hint-text">※画面をタップすると全画面化＆音が有効になります</div>
+      <div class="tap-hint" id="hint-text">※固まった場合は画面をタップするとリロードします</div>
     </div>
   </div>
 
   <script>
-    // 設定済みのGAS WebアプリURL
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxs2i-UDDR_ddUW902Z-oHHS_X133LjccSXEDzLNN143Vxi3aunK2g60VbPwNb0SzWu/exec";
 
     // ==========================================
-    // 音声再生 (Web Audio API)
+    // 1. スリープ防止 (Screen Wake Lock API)
+    // ==========================================
+    let wakeLock = null;
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.log("Wake Lock エラー:", err);
+      }
+    }
+
+    document.addEventListener("visibilitychange", async () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        await requestWakeLock();
+      }
+    });
+
+    // ==========================================
+    // 2. 音声再生 (Web Audio API)
     // ==========================================
     let audioCtx = null;
     function initAudio() {
@@ -149,19 +168,19 @@
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = "sine";
-        osc.frequency.setValueAtTime(2000, audioCtx.currentTime); // 高音のピッ
+        osc.frequency.setValueAtTime(2000, audioCtx.currentTime);
         gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.15); // 0.15秒
+        osc.stop(audioCtx.currentTime + 0.15);
       } catch (e) {
         console.error("Audio Error:", e);
       }
     }
 
     // ==========================================
-    // 全画面表示トリガー
+    // 3. 全画面表示トリガー
     // ==========================================
     function requestFullScreen() {
       const doc = document.documentElement;
@@ -172,8 +191,11 @@
       }
     }
 
+    // 初回タップ状態のフラグ
+    let isInitialized = false;
+
     // ==========================================
-    // 爆速・全画面緑色 認証処理（OK超巨大化）
+    // 4. 爆速・全画面緑色 認証処理
     // ==========================================
     let isProcessing = false;
 
@@ -181,23 +203,19 @@
       if (isProcessing) return;
       isProcessing = true;
 
-      // ① 0.01秒で「ピッ！」音を再生
       playBeep();
 
-      // ② 全画面を緑色にし、画面中央に「OK」を超巨大表示
       const container = document.getElementById("app-container");
       const statusText = document.getElementById("status-text");
       
       container.classList.add("success");
       statusText.innerText = "OK";
 
-      // ③ 裏側（バックグラウンド）でGASへ送信
       fetch(`${GAS_URL}?id=${encodeURIComponent(decodedText)}`, {
         method: "POST",
         mode: "no-cors"
       }).catch(err => console.error("送信エラー:", err));
 
-      // ④ 1.5秒後に自動で元のスキャン画面に戻す
       setTimeout(() => {
         container.classList.remove("success");
         statusText.innerText = "QRをかざしてください";
@@ -219,11 +237,21 @@
     );
     html5QrcodeScanner.render(onScanSuccess);
 
-    // 画面タップ時に全画面化＆音声の初期化を実行
+    // ==========================================
+    // 5. 画面タップ時の処理（初回:有効化 / 2回目以降:リロード）
+    // ==========================================
     document.body.addEventListener("click", () => {
-      initAudio();
-      requestFullScreen();
-      document.getElementById("hint-text").style.display = "none";
+      if (!isInitialized) {
+        // 初回タップ時：音・全画面・スリープ防止を起動
+        initAudio();
+        requestFullScreen();
+        requestWakeLock();
+        document.getElementById("hint-text").innerText = "※固まった場合は画面をタップすると再読み込みします";
+        isInitialized = true;
+      } else {
+        // 2回目以降のタップ時：ページ全体をリロード
+        location.reload();
+      }
     });
   </script>
 </body>
