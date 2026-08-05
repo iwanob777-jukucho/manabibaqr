@@ -21,16 +21,16 @@
       user-select: none;
     }
 
-    /* 全体コンテナ（画面いっぱいに広げて相対配置） */
+    /* 全体コンテナ */
     #app-container {
       position: relative;
       width: 100vw;
       height: 100vh;
       overflow: hidden;
-      transition: background-color 0.15s ease;
+      background-color: #000;
     }
 
-    /* カメラ枠：画面全体にフィット */
+    /* カメラ映像領域（画面全体） */
     #reader-wrapper {
       position: absolute;
       top: 0;
@@ -42,8 +42,6 @@
     #reader {
       width: 100% !important;
       height: 100% !important;
-      border: none !important;
-      background: #000;
     }
     #reader video {
       width: 100% !important;
@@ -51,10 +49,10 @@
       object-fit: cover !important;
     }
 
-    /* 上部タイトル（カメラの上に浮かす） */
+    /* 上部タイトル（オーバーレイ） */
     h1 {
       position: absolute;
-      top: 2vh;
+      top: 3vh;
       left: 0;
       width: 100%;
       z-index: 10;
@@ -68,10 +66,10 @@
       pointer-events: none;
     }
 
-    /* 下部ステータス表示エリア（カメラの上に浮かす） */
+    /* 下部ステータス表示エリア（オーバーレイ） */
     #status-container {
       position: absolute;
-      bottom: 3vh;
+      bottom: 4vh;
       left: 0;
       width: 100%;
       z-index: 10;
@@ -82,7 +80,7 @@
     #status-text {
       font-size: 6.5vh;
       font-weight: 900;
-      color: #00ffffff;
+      color: #00ffff;
       line-height: 1.1;
       word-break: break-all;
       text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9), 0 0 20px rgba(0, 0, 0, 0.6);
@@ -90,7 +88,7 @@
     .tap-hint {
       font-size: 2.2vh;
       color: #e0e0e0;
-      margin-top: 0.8vh;
+      margin-top: 1vh;
       text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
     }
 
@@ -101,16 +99,18 @@
     #app-container.success h1,
     #app-container.success .tap-hint,
     #app-container.success #reader-wrapper {
-      display: none;
+      display: none !important;
     }
     #app-container.success #status-container {
-      position: static;
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      width: 100vw;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      height: 100%;
-      width: 100%;
     }
     #app-container.success #status-text {
       color: #ffffff !important;
@@ -132,16 +132,14 @@
 
     <div id="status-container">
       <div id="status-text">QRをかざしてください</div>
-      <div class="tap-hint" id="hint-text">※画面をタップすると全画面化＆カメラを再起動します</div>
+      <div class="tap-hint" id="hint-text">※画面タップで全画面＆リセット</div>
     </div>
   </div>
 
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxs2i-UDDR_ddUW902Z-oHHS_X133LjccSXEDzLNN143Vxi3aunK2g60VbPwNb0SzWu/exec";
 
-    // ==========================================
-    // 1. スリープ防止 (Screen Wake Lock API)
-    // ==========================================
+    // 1. スリープ防止
     let wakeLock = null;
     async function requestWakeLock() {
       try {
@@ -159,9 +157,7 @@
       }
     });
 
-    // ==========================================
     // 2. 音声再生 (Web Audio API)
-    // ==========================================
     let audioCtx = null;
     function initAudio() {
       if (!audioCtx) {
@@ -189,9 +185,7 @@
       }
     }
 
-    // ==========================================
     // 3. 全画面表示トリガー
-    // ==========================================
     function requestFullScreen() {
       const doc = document.documentElement;
       if (!document.fullscreenElement && !document.webkitFullscreenElement) {
@@ -203,12 +197,10 @@
       }
     }
 
-    // ==========================================
-    // 4. 爆速・全画面緑色 認証処理
-    // ==========================================
+    // 4. スキャン成功時の処理
     let isProcessing = false;
 
-    function onScanSuccess(decodedText, decodedResult) {
+    function onScanSuccess(decodedText) {
       if (isProcessing) return;
       isProcessing = true;
 
@@ -232,47 +224,59 @@
       }, 1500);
     }
 
-    // ==========================================
-    // 5. カメラの起動 ＆ リセット処理 (A案)
-    // ==========================================
-    let html5QrcodeScanner = null;
+    // 5. Html5Qrcode 直接制御（描画エラー回避）
+    let html5QrCode = null;
 
-    function startScanner() {
-      if (html5QrcodeScanner) {
-        try {
-          html5QrcodeScanner.clear();
-        } catch(e) {
-          console.log("Clear error:", e);
+    async function startCamera() {
+      try {
+        if (!html5QrCode) {
+          html5QrCode = new Html5Qrcode("reader");
+        } else {
+          if (html5QrCode.isScanning) {
+            await html5QrCode.stop();
+          }
         }
-      }
-      
-      html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader", 
-        { 
-          fps: 15, 
-          qrbox: function(viewfinderWidth, viewfinderHeight) {
+
+        const config = {
+          fps: 15,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
             const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
             return { width: Math.floor(minEdge * 0.6), height: Math.floor(minEdge * 0.6) };
           }
-        },
-        false
-      );
-      html5QrcodeScanner.render(onScanSuccess);
+        };
+
+        // 背面カメラ(environment)を優先起動、ダメならユーザー選択カメラ
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          config,
+          onScanSuccess
+        );
+      } catch (err) {
+        console.error("カメラ起動エラー:", err);
+        // 背面カメラ指定で失敗した場合はカメラ制限なしで再トライ
+        try {
+          await html5QrCode.start(
+            { facingMode: "user" },
+            { fps: 15 },
+            onScanSuccess
+          );
+        } catch (e) {
+          document.getElementById("status-text").innerText = "カメラを起動できません";
+        }
+      }
     }
 
-    // 初回起動
-    startScanner();
+    // 初回カメラ起動
+    window.addEventListener("DOMContentLoaded", () => {
+      startCamera();
+    });
 
-    // ==========================================
-    // 6. 画面タップ時の処理（全画面＋音声＋スリープ＋カメラ再起動）
-    // ==========================================
+    // 6. 画面タップ時のリセット
     document.body.addEventListener("click", () => {
       initAudio();
       requestFullScreen();
       requestWakeLock();
-      
-      // 画面更新はせず、カメラの接続だけを裏で再起動
-      startScanner();
+      startCamera();
     });
   </script>
 </body>
