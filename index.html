@@ -29,7 +29,7 @@
       justify-content: space-between;
       width: 100vw;
       height: 100vh;
-      padding: 1.5vh 2vw;
+      padding: 1vh 2vw;
       transition: background-color 0.15s ease;
     }
 
@@ -37,29 +37,30 @@
     h1 {
       color: #333;
       margin: 0;
-      font-size: 5vh;
+      font-size: 4vh;
       font-weight: 900;
-      letter-spacing: 2px;
+      letter-spacing: 1px;
     }
 
-    /* カメラ枠（大型化） */
+    /* カメラ枠 */
     #reader-wrapper {
       width: 100%;
-      max-width: 900px;
+      max-width: 800px;
       flex-grow: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 1vh 0;
+      margin: 0.5vh 0;
+      overflow: hidden;
     }
     #reader {
       width: 100%;
       height: 100%;
-      max-height: 68vh;
+      max-height: 58vh;
       background: #000;
-      border-radius: 20px;
+      border-radius: 16px;
       overflow: hidden;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
     }
     #reader video {
       object-fit: cover !important;
@@ -68,21 +69,21 @@
     /* 下部ステータス表示エリア */
     #status-container {
       width: 100%;
-      max-width: 900px;
+      max-width: 800px;
       text-align: center;
       padding: 0.5vh 0;
     }
     #status-text {
-      font-size: 6.5vh;
+      font-size: 5.5vh;
       font-weight: 900;
       color: #007bff;
       line-height: 1.1;
       word-break: break-all;
     }
     .tap-hint {
-      font-size: 2.5vh;
+      font-size: 2vh;
       color: #6c757d;
-      margin-top: 0.5vh;
+      margin-top: 0.3vh;
     }
 
     /* 認証成功時の全画面緑色スタイル */
@@ -122,7 +123,7 @@
 
     <div id="status-container">
       <div id="status-text">QRをかざしてください</div>
-      <div class="tap-hint" id="hint-text">※固まった場合は画面をタップするとリロードします</div>
+      <div class="tap-hint" id="hint-text">※画面をタップすると全画面化＆カメラを再起動します</div>
     </div>
   </div>
 
@@ -184,15 +185,14 @@
     // ==========================================
     function requestFullScreen() {
       const doc = document.documentElement;
-      if (doc.requestFullscreen) {
-        doc.requestFullscreen().catch(() => {});
-      } else if (doc.webkitRequestFullscreen) {
-        doc.webkitRequestFullscreen();
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        if (doc.requestFullscreen) {
+          doc.requestFullscreen().catch(() => {});
+        } else if (doc.webkitRequestFullscreen) {
+          doc.webkitRequestFullscreen();
+        }
       }
     }
-
-    // 初回タップ状態のフラグ
-    let isInitialized = false;
 
     // ==========================================
     // 4. 爆速・全画面緑色 認証処理
@@ -223,35 +223,47 @@
       }, 1500);
     }
 
-    // カメラ起動設定
-    const html5QrcodeScanner = new Html5QrcodeScanner(
-      "reader", 
-      { 
-        fps: 15, 
-        qrbox: function(viewfinderWidth, viewfinderHeight) {
-          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          return { width: Math.floor(minEdge * 0.85), height: Math.floor(minEdge * 0.85) };
+    // ==========================================
+    // 5. カメラの起動 ＆ リセット処理 (A案)
+    // ==========================================
+    let html5QrcodeScanner = null;
+
+    function startScanner() {
+      if (html5QrcodeScanner) {
+        try {
+          html5QrcodeScanner.clear();
+        } catch(e) {
+          console.log("Clear error:", e);
         }
-      },
-      false
-    );
-    html5QrcodeScanner.render(onScanSuccess);
+      }
+      
+      html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader", 
+        { 
+          fps: 15, 
+          qrbox: function(viewfinderWidth, viewfinderHeight) {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            return { width: Math.floor(minEdge * 0.7), height: Math.floor(minEdge * 0.7) };
+          }
+        },
+        false
+      );
+      html5QrcodeScanner.render(onScanSuccess);
+    }
+
+    // 初回起動
+    startScanner();
 
     // ==========================================
-    // 5. 画面タップ時の処理（初回:有効化 / 2回目以降:リロード）
+    // 6. 画面タップ時の処理（全画面＋音声＋スリープ＋カメラ再起動）
     // ==========================================
     document.body.addEventListener("click", () => {
-      if (!isInitialized) {
-        // 初回タップ時：音・全画面・スリープ防止を起動
-        initAudio();
-        requestFullScreen();
-        requestWakeLock();
-        document.getElementById("hint-text").innerText = "※固まった場合は画面をタップすると再読み込みします";
-        isInitialized = true;
-      } else {
-        // 2回目以降のタップ時：ページ全体をリロード
-        location.reload();
-      }
+      initAudio();
+      requestFullScreen();
+      requestWakeLock();
+      
+      // 画面更新はせず、カメラの接続だけを裏で再起動
+      startScanner();
     });
   </script>
 </body>
