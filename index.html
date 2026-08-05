@@ -30,7 +30,7 @@
       background-color: #000;
     }
 
-    /* カメラ映像領域（画面全体） */
+    /* カメラ映像領域（全画面・軽量化プロパティ付き） */
     #reader-wrapper {
       position: absolute;
       top: 0;
@@ -38,10 +38,12 @@
       width: 100vw;
       height: 100vh;
       z-index: 1;
+      will-change: transform;
     }
     #reader {
       width: 100% !important;
       height: 100% !important;
+      border: none !important;
     }
     #reader video {
       width: 100% !important;
@@ -132,7 +134,7 @@
 
     <div id="status-container">
       <div id="status-text">QRをかざしてください</div>
-      <div class="tap-hint" id="hint-text">※画面タップで全画面＆リセット</div>
+      <div class="tap-hint" id="hint-text">※画面タップで全画面＆カメラ再起動</div>
     </div>
   </div>
 
@@ -224,7 +226,7 @@
       }, 1500);
     }
 
-    // 5. Html5Qrcode 直接制御（描画エラー回避）
+    // 5. 前面（インカメラ）固定 ＆ カメラ起動処理
     let html5QrCode = null;
 
     async function startCamera() {
@@ -237,27 +239,28 @@
           }
         }
 
+        // 解析fpsを10に抑えてタブレットの負荷を軽減
         const config = {
-          fps: 15,
+          fps: 10,
           qrbox: (viewfinderWidth, viewfinderHeight) => {
             const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
             return { width: Math.floor(minEdge * 0.6), height: Math.floor(minEdge * 0.6) };
           }
         };
 
-        // 背面カメラ(environment)を優先起動、ダメならユーザー選択カメラ
+        // `{ facingMode: "user" }` で最初から前面カメラ（インカメラ）を強制指定
         await html5QrCode.start(
-          { facingMode: "environment" },
+          { facingMode: "user" },
           config,
           onScanSuccess
         );
       } catch (err) {
-        console.error("カメラ起動エラー:", err);
-        // 背面カメラ指定で失敗した場合はカメラ制限なしで再トライ
+        console.error("前面カメラ起動エラー:", err);
+        // 万が一前面指定で拒否された場合はカメラ全体検索にフォールバック
         try {
           await html5QrCode.start(
-            { facingMode: "user" },
-            { fps: 15 },
+            { facingMode: { exact: "user" } },
+            { fps: 10 },
             onScanSuccess
           );
         } catch (e) {
@@ -271,7 +274,7 @@
       startCamera();
     });
 
-    // 6. 画面タップ時のリセット
+    // 6. 画面タップ時の処理（全画面化＋スリープ防止＋前面カメラ再起動）
     document.body.addEventListener("click", () => {
       initAudio();
       requestFullScreen();
