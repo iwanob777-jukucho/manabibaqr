@@ -33,19 +33,19 @@
       transition: background-color 0.15s ease;
     }
 
-    /* 上部タイトル（拡大化） */
+    /* 上部タイトル */
     h1 {
       color: #333;
       margin: 0;
-      font-size: 5vh; /* 4vh -> 5vh へ拡大 */
+      font-size: 5vh;
       font-weight: 900;
       letter-spacing: 2px;
     }
 
-    /* カメラ枠（画面幅いっぱいに極限まで拡張） */
+    /* カメラ枠 */
     #reader-wrapper {
       width: 100%;
-      max-width: 900px; /* 枠の最大幅を拡張 */
+      max-width: 900px;
       flex-grow: 1;
       display: flex;
       align-items: center;
@@ -55,7 +55,7 @@
     #reader {
       width: 100%;
       height: 100%;
-      max-height: 68vh; /* 55vh -> 68vh へ大型化 */
+      max-height: 68vh;
       background: #000;
       border-radius: 20px;
       overflow: hidden;
@@ -65,7 +65,7 @@
       object-fit: cover !important;
     }
 
-    /* 下部ステータス表示エリア（拡大化） */
+    /* 下部ステータス表示エリア */
     #status-container {
       width: 100%;
       max-width: 900px;
@@ -73,14 +73,14 @@
       padding: 0.5vh 0;
     }
     #status-text {
-      font-size: 6.5vh; /* 5vh -> 6.5vh へ超巨大化 */
+      font-size: 6.5vh;
       font-weight: 900;
       color: #007bff;
       line-height: 1.1;
       word-break: break-all;
     }
     .tap-hint {
-      font-size: 2.5vh; /* 2vh -> 2.5vh へ拡大 */
+      font-size: 2.5vh;
       color: #6c757d;
       margin-top: 0.5vh;
     }
@@ -92,7 +92,7 @@
     #app-container.success h1,
     #app-container.success .tap-hint,
     #app-container.success #reader-wrapper {
-      display: none; /* 認証時は全画面緑＋超巨大文字に切り替え */
+      display: none; /* 認証時は完全に隠す */
     }
     #app-container.success #status-container {
       display: flex;
@@ -100,11 +100,14 @@
       justify-content: center;
       align-items: center;
       height: 100%;
+      max-width: 100%;
     }
     #app-container.success #status-text {
       color: #ffffff !important;
-      font-size: 11vh !important; /* 最大級の文字 */
-      text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      font-size: 35vh !important; /* 文字を「OK」に変更したため超々巨大化（35vh） */
+      font-weight: 900 !important;
+      letter-spacing: 4px;
+      text-shadow: 0 8px 24px rgba(0,0,0,0.3);
     }
   </style>
 </head>
@@ -170,7 +173,7 @@
     }
 
     // ==========================================
-    // 爆速・全画面緑色 認証処理
+    // 爆速・全画面緑色 認証処理（OK超巨大化）
     // ==========================================
     let isProcessing = false;
 
@@ -181,12 +184,12 @@
       // ① 0.01秒で「ピッ！」音を再生
       playBeep();
 
-      // ② 全画面を緑色にし、超巨大文字で表示
+      // ② 全画面を緑色にし、画面中央に「OK」を超巨大表示
       const container = document.getElementById("app-container");
       const statusText = document.getElementById("status-text");
       
       container.classList.add("success");
-      statusText.innerText = "認証しました！";
+      statusText.innerText = "OK";
 
       // ③ 裏側（バックグラウンド）でGASへ送信
       fetch(`${GAS_URL}?id=${encodeURIComponent(decodedText)}`, {
@@ -202,7 +205,7 @@
       }, 1500);
     }
 
-    // カメラ起動設定（スキャンエリア拡大設定）
+    // カメラ起動設定
     const html5QrcodeScanner = new Html5QrcodeScanner(
       "reader", 
       { 
