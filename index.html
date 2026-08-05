@@ -1,63 +1,57 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>マナビバ入退室</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>マナビバ 入退室打刻</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    html, body { 
-      margin: 0; padding: 0; width: 100%; height: 100%; 
-      overflow: hidden; background: #000; position: fixed;
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+      background-color: #f8f9fa;
+      margin: 0;
+      padding: 20px;
+      user-select: none;
     }
-    #reader { width: 100vw !important; height: 100vh !important; border: none !important; }
-    #reader video { object-fit: cover; }
-
-    .controls { 
-      position: absolute; 
-      top: 15px; 
-      right: 15px;
-      z-index: 9999;
+    h1 { color: #333; margin-bottom: 10px; font-size: 24px; }
+    #reader {
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
-    #camera-selection { 
-      padding: 10px; 
-      font-size: 14px; 
-      background: rgba(255, 255, 255, 0.8); 
-      border-radius: 5px;
-      border: 1px solid #ccc;
+    #status {
+      margin-top: 20px;
+      font-size: 28px;
+      font-weight: bold;
+      min-height: 50px;
+      color: #007bff;
+      padding: 10px;
+      border-radius: 8px;
+      background: #fff;
+      max-width: 480px;
+      margin: 10px auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
-
-    #result {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 85%; max-width: 450px; padding: 40px 20px; text-align: center;
-      font-size: 1.8em; font-weight: bold; border-radius: 20px; z-index: 1000;
-      display: none; box-shadow: 0 10px 40px rgba(0,0,0,0.6); line-height: 1.4;
-    }
-    .loading { background: rgba(255, 255, 255, 0.9); color: #333; display: block !important; }
-    .success { display: block !important; color: #fff; }
-    .in-style { background: rgba(26, 115, 232, 0.95); }
-    .out-style { background: rgba(230, 124, 115, 0.95); }
+    .tap-hint { font-size: 14px; color: #6c757d; margin-top: 15px; }
   </style>
 </head>
+<body>
 
-<body onclick="initAudio(); document.documentElement.requestFullscreen();">
-
-  <div class="controls">
-    <select id="camera-selection">
-      <option value="">カメラ読込中...</option>
-    </select>
-  </div>
-
+  <h1>学習塾マナビバ 入退室管理</h1>
   <div id="reader"></div>
-  <div id="result" class="loading">カメラ準備中...<br><small>画面を一度タップしてください</small></div>
+  <div id="status">カード（QR）をかざしてください</div>
+  <div class="tap-hint">※音が鳴らない場合は一度画面をタップしてください</div>
 
   <script>
+    // ★ステップ1でコピーしたGASのURLを「' '」の間に貼り付けてください
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxs2i-UDDR_ddUW902Z-oHHS_X133LjccSXEDzLNN143Vxi3aunK2g60VbPwNb0SzWu/exec";
-    let html5QrCode = new Html5Qrcode("reader");
-    const cameraSelect = document.getElementById('camera-selection');
-    const resultDiv = document.getElementById('result');
-    
-    // Web Audio API（ブラウザ内部で「ピッ」と音を作る機能）
+
+    // 音声再生 (Web Audio API)
     let audioCtx = null;
     function initAudio() {
       if (!audioCtx) {
@@ -68,99 +62,68 @@
       }
     }
 
-    // 「ピッ」と電子音を鳴らす関数
     function playBeep() {
       try {
         initAudio();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(2000, audioCtx.currentTime); // 周波数（2000Hz = 高いピッ音）
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime); // 音量
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(2000, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.15); // 0.15秒だけ鳴らす
+        osc.stop(audioCtx.currentTime + 0.15); // 0.15秒でピッ
       } catch (e) {
-        console.log("音声再生エラー:", e);
+        console.error("Audio Error:", e);
       }
     }
 
-    const config = { fps: 20, qrbox: (width, height) => {
-      const size = Math.min(width, height) * 0.7;
-      return { width: size, height: size };
-    }};
+    // 爆速・待ち時間ゼロ打刻処理
+    let isProcessing = false;
 
-    Html5Qrcode.getCameras().then(cameras => {
-      if (cameras && cameras.length > 0) {
-        cameraSelect.innerHTML = "";
-        cameras.forEach((camera, index) => {
-          const option = document.createElement("option");
-          option.value = camera.id;
-          option.text = camera.label || `カメラ ${index + 1}`;
-          cameraSelect.appendChild(option);
-        });
-        
-        const backCamera = cameras.find(c => c.label.toLowerCase().includes('back'));
-        const targetId = backCamera ? backCamera.id : cameras[0].id;
-        cameraSelect.value = targetId;
-        startScanning(targetId);
+    function onScanSuccess(decodedText, decodedResult) {
+      if (isProcessing) return; // 連続読み取り防止
+      isProcessing = true;
+
+      // ① かざした瞬間に0.01秒で「ピッ！」と音を鳴らす
+      playBeep();
+
+      // ② かざした瞬間に画面を「受付完了」にする
+      const statusDiv = document.getElementById("status");
+      statusDiv.innerText = `【受付完了】ID: ${decodedText}`;
+      statusDiv.style.color = "#28a745";
+      statusDiv.style.backgroundColor = "#e8f5e9";
+
+      // ③ 裏側（バックグラウンド）でスプレッドシートへ送信
+      if (GAS_URL && GAS_URL !== "ここにGASのURLを貼り付け") {
+        fetch(`${GAS_URL}?id=${encodeURIComponent(decodedText)}`, {
+          method: "POST",
+          mode: "no-cors"
+        }).catch(err => console.error("送信エラー:", err));
       }
-    }).catch(err => {
-      resultDiv.innerText = "カメラの権限を許可してください";
-    });
 
-    cameraSelect.addEventListener('change', async () => {
-      try {
-        await html5QrCode.stop();
-        startScanning(cameraSelect.value);
-      } catch (err) {
-        console.error("切り替えエラー:", err);
-        location.reload();
-      }
-    });
-
-    function startScanning(cameraId) {
-      resultDiv.innerText = "QRコードをかざしてください";
-      resultDiv.className = "loading";
-      
-      html5QrCode.start(cameraId, config, (decodedText) => {
-        html5QrCode.pause();
-        
-        // ★QRコードを検知した瞬間に電子音を鳴らします
-        playBeep();
-        
-        resultDiv.innerText = "送信中...";
-        resultDiv.className = "loading";
-
-        const formData = new URLSearchParams();
-        formData.append('id', decodedText);
-
-        fetch(GAS_URL, { method: "POST", mode: "cors", body: formData })
-        .then(response => response.text())
-        .then(data => {
-          const [name, status] = data.split(",");
-          
-          if (status === "IN") {
-            resultDiv.innerHTML = `${name} さん<br>🔔 入室しました`;
-            resultDiv.className = "success in-style";
-          } else {
-            resultDiv.innerHTML = `${name} さん<br>🏠 退室しました`;
-            resultDiv.className = "success out-style";
-          }
-          
-          setTimeout(() => {
-            resultDiv.innerText = "QRコードをかざしてください";
-            resultDiv.className = "loading";
-            html5QrCode.resume();
-          }, 2000);
-        })
-        .catch(err => {
-          resultDiv.innerText = "通信エラー";
-          setTimeout(() => html5QrCode.resume(), 2000);
-        });
-      });
+      // 1.2秒後に次のカード受付を開始
+      setTimeout(() => {
+        statusDiv.innerText = "カード（QR）をかざしてください";
+        statusDiv.style.color = "#007bff";
+        statusDiv.style.backgroundColor = "#fff";
+        isProcessing = false;
+      }, 1200);
     }
+
+    // カメラ起動
+    const html5QrcodeScanner = new Html5QrcodeScanner(
+      "reader", 
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      false
+    );
+    html5QrcodeScanner.render(onScanSuccess);
+
+    // 画面タップで音声初期化
+    document.body.addEventListener("click", () => {
+      initAudio();
+    });
   </script>
 </body>
 </html>
