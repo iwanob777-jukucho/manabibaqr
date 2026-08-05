@@ -29,57 +29,60 @@
       justify-content: space-between;
       width: 100vw;
       height: 100vh;
-      padding: 2vh 2vw;
+      padding: 1.5vh 2vw;
       transition: background-color 0.15s ease;
     }
 
-    /* タイトル */
+    /* 上部タイトル（拡大化） */
     h1 {
       color: #333;
       margin: 0;
-      font-size: 4vh;
-      font-weight: bold;
+      font-size: 5vh; /* 4vh -> 5vh へ拡大 */
+      font-weight: 900;
+      letter-spacing: 2px;
     }
 
-    /* QR読み取りカメラ枠 */
+    /* カメラ枠（画面幅いっぱいに極限まで拡張） */
     #reader-wrapper {
       width: 100%;
-      max-width: 600px;
+      max-width: 900px; /* 枠の最大幅を拡張 */
       flex-grow: 1;
       display: flex;
       align-items: center;
       justify-content: center;
+      margin: 1vh 0;
     }
     #reader {
       width: 100%;
-      max-height: 55vh;
+      height: 100%;
+      max-height: 68vh; /* 55vh -> 68vh へ大型化 */
       background: #000;
-      border-radius: 16px;
+      border-radius: 20px;
       overflow: hidden;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
     }
     #reader video {
-      object-fit: cover;
+      object-fit: cover !important;
     }
 
-    /* 下部ステータス表示エリア */
+    /* 下部ステータス表示エリア（拡大化） */
     #status-container {
       width: 100%;
-      max-width: 800px;
+      max-width: 900px;
       text-align: center;
-      padding: 1.5vh;
+      padding: 0.5vh 0;
     }
     #status-text {
-      font-size: 5vh;
+      font-size: 6.5vh; /* 5vh -> 6.5vh へ超巨大化 */
       font-weight: 900;
       color: #007bff;
-      line-height: 1.2;
+      line-height: 1.1;
       word-break: break-all;
     }
     .tap-hint {
-      font-size: 2vh;
+      font-size: 2.5vh; /* 2vh -> 2.5vh へ拡大 */
       color: #6c757d;
-      margin-top: 1vh;
+      margin-top: 0.5vh;
     }
 
     /* 認証成功時の全画面緑色スタイル */
@@ -89,7 +92,7 @@
     #app-container.success h1,
     #app-container.success .tap-hint,
     #app-container.success #reader-wrapper {
-      display: none; /* 認証時は画面全体をスッキリさせて文字を超巨大化 */
+      display: none; /* 認証時は全画面緑＋超巨大文字に切り替え */
     }
     #app-container.success #status-container {
       display: flex;
@@ -100,7 +103,7 @@
     }
     #app-container.success #status-text {
       color: #ffffff !important;
-      font-size: 10vh !important; /* 最大サイズの文字 */
+      font-size: 11vh !important; /* 最大級の文字 */
       text-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
   </style>
@@ -143,12 +146,12 @@
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = "sine";
-        osc.frequency.setValueAtTime(2000, audioCtx.currentTime); // 2000Hzの高音
+        osc.frequency.setValueAtTime(2000, audioCtx.currentTime); // 高音のピッ
         gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.15); // 0.15秒でピッ
+        osc.stop(audioCtx.currentTime + 0.15); // 0.15秒
       } catch (e) {
         console.error("Audio Error:", e);
       }
@@ -199,14 +202,14 @@
       }, 1500);
     }
 
-    // カメラ起動設定
+    // カメラ起動設定（スキャンエリア拡大設定）
     const html5QrcodeScanner = new Html5QrcodeScanner(
       "reader", 
       { 
         fps: 15, 
         qrbox: function(viewfinderWidth, viewfinderHeight) {
           const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          return { width: Math.floor(minEdge * 0.8), height: Math.floor(minEdge * 0.8) };
+          return { width: Math.floor(minEdge * 0.85), height: Math.floor(minEdge * 0.85) };
         }
       },
       false
